@@ -229,47 +229,7 @@ void AutoDetectPhy1Addr()
 		{
 			Disp("GW1PHYAD[0]=%03xH,GW1PHYAD[1]=%03xH \n",GW1PHYAD[0],GW1PHYAD[1]);
 		}
-	}	
-	else if(PHY1Chip==CHIP_KSZ8081 || PHY1Chip==CHIP_IP101A_INT)	
-	{
-	    flag = 0;
-	    PHY1AD = 0;
-		for (i=0; i<32; i++)
-		{
-			temp = Mii1StationRead(0, (i << 8));
-			Disp("i1=%d, temp1=%xH \n",i,temp);
-			if ((temp & 0xFFFF) == 0x3100)
-			{
-				PHY1AD = i << 8;			
-				flag = 1;			
-				break;
-			}
-		}
-		Disp("PHY1 ADDR %d = %x\n", i, Mii1StationRead( 0, (i << 8)));	
-		#ifdef _DEBUG
-			if (flag == 1) {
-				DisplayString(0,7,"AutoDetectPhy1Addr() : PHY ADDR = ");
-				DisplayDWord(40,7, i);
-			} else {
-				DisplayString(0,7,"AutoDetectPhy1Addr() : Don't find PHY Addr!");
-			}
-		#endif
-	}	
-    else if(PHY1Chip==CHIP_YT8512C)
-    {
-		Disp("PHY1Chip==CHIP_YT8512C \n");
-		for (i=0; i<32; i++)
-		{
-			temp = Mii1StationRead(0, (i << 8));
-			Disp("i=%d, temp=%xH \n",i,temp);
-			if ((temp & 0xFFFF) == 0x1140 && (i!=0) )
-			{
-				PHY1AD = i << 8;			
-				flag = 1;			
-				break;
-			}
-		}
-    }
+	}
     else Disp("!! PHY1 IC unknow !!\n");
 }
 void MAC1_SetLinkOk(int ms) 
@@ -288,110 +248,7 @@ void MAC1_SetLinkOk(int ms)
 		pVirAdapter = NULL;
 	}
 #endif
-	if(PHY1Chip == CHIP_KSZ8081 || PHY1Chip == CHIP_YT8512C || PHY1Chip==CHIP_IP101A_INT)
-	{
-		if (ms == 0) {
-	    	RdValue = Mii1StationRead(PHY_STATUS_REG, PHY1AD) ;
-			if ((RdValue & AN_COMPLETE) != 0)
-			{
-				if ((m_pEthInfo1->portStatus&ETH_PORT_STATUS_NIGOTIATION_OK) != ETH_PORT_STATUS_NIGOTIATION_OK) 
-				{
-					if (m_pEthInfo1->bUseInt == 0) 
-					{
-						m_pEthInfo1->portStatus = (m_pEthInfo1->portStatus | ETH_PORT_STATUS_CABLE_LINKED);
-					}
-					m_pEthInfo1->portStatus = (m_pEthInfo1->portStatus | ETH_PORT_STATUS_NIGOTIATION_OK);
-	#if defined(VIRTUAL_NIC_SUPPORT)
-					if (pVirAdapter) 
-					{
-						pVirAdapter->portStatus = m_pEthInfo1->portStatus;
-					}
-	#endif
-					Mac1_EnableInt();
-				}
-			}
-			else 
-			{
-				if ((m_pEthInfo1->portStatus&ETH_PORT_STATUS_NIGOTIATION_OK) == ETH_PORT_STATUS_NIGOTIATION_OK) 
-				{
-		  			MCMDR1 |= MCMDR_OPMOD;
-		  			MCMDR1 |= MCMDR_FDUP;				
-					Mac1_DisableInt();
-					m_pEthInfo1->portStatus = (m_pEthInfo1->portStatus & ~ETH_PORT_STATUS_PROT_GETIPED);
-					m_pEthInfo1->portStatus = (m_pEthInfo1->portStatus & ~ETH_PORT_STATUS_NIGOTIATION_OK);
-	#if defined(VIRTUAL_NIC_SUPPORT)
-					if (pVirAdapter) 
-					{
-						pVirAdapter->portStatus = m_pEthInfo1->portStatus;
-					}
-	#endif
-				}
-			}
-		}
-		else 
-		{
-			t0 = GetTickCount1ms();
-			while (1) 	 
-		    {
-		    	RdValue = Mii1StationRead(PHY_STATUS_REG, PHY1AD) ;
-				if ((RdValue & AN_COMPLETE) != 0)
-				{
-					if (m_pEthInfo1->bUseInt == 0) 
-					{
-						m_pEthInfo1->portStatus = (m_pEthInfo1->portStatus | ETH_PORT_STATUS_CABLE_LINKED);
-					}
-					m_pEthInfo1->portStatus = (m_pEthInfo1->portStatus | ETH_PORT_STATUS_NIGOTIATION_OK);
-	#if defined(VIRTUAL_NIC_SUPPORT)
-					if (pVirAdapter) 
-					{
-						pVirAdapter->portStatus = m_pEthInfo1->portStatus;
-					}
-	#endif
-					Mac1_EnableInt();
-					break;
-				}
-				if ((GetTickCount1ms()-t0) >= ms )
-				{
-		  			MCMDR1 |= MCMDR_OPMOD;
-		  			MCMDR1 |= MCMDR_FDUP;				
-					Mac1_DisableInt();
-					m_pEthInfo1->portStatus = (m_pEthInfo1->portStatus & ~ETH_PORT_STATUS_PROT_GETIPED);
-					m_pEthInfo1->portStatus = (m_pEthInfo1->portStatus & ~ETH_PORT_STATUS_NIGOTIATION_OK);
-	#if defined(VIRTUAL_NIC_SUPPORT)
-					if (pVirAdapter) 
-					{
-						pVirAdapter->portStatus = m_pEthInfo1->portStatus;
-					}
-	#endif
-					break;
-				}
-		    }
-		}
-		if (m_pEthInfo1->portStatus&ETH_PORT_STATUS_NIGOTIATION_OK) {
-		    regANA   = Mii1StationRead(PHY_ANA_REG, PHY1AD);
-		    regANLPA = Mii1StationRead(PHY_ANLPA_REG, PHY1AD);
-		    if ((regANA & 0x100) && (regANLPA & 0x100)) 
-		    { 
-		    	MCMDR1 = MCMDR1 | MCMDR_OPMOD | MCMDR_FDUP;           
-		    }
-		    else if ((regANA & 0x80) && (regANLPA & 0x80)) 
-		    {
-		    	MCMDR1 |= MCMDR_OPMOD;
-				MCMDR1 &= ~MCMDR_FDUP;
-		    } 
-		    else if ((regANA & 0x40) && (regANLPA & 0x40)) 
-		    {  	
-				MCMDR1 &= ~MCMDR_OPMOD;
-				MCMDR1 |= MCMDR_FDUP;    
-		    }
-		    else 
-		    {   
-				MCMDR1 &= ~MCMDR_OPMOD;
-				MCMDR1 &= ~MCMDR_FDUP;        
-		    }
-		} 
-	}
-	else if(PHY1Chip == CHIP_DM8603)
+	if(PHY1Chip == CHIP_DM8603)
 	{
 		Disp("** DM8603 MAC1_SetLinkOk **\n");
 		if (ms == 0) {
@@ -554,70 +411,7 @@ void ResetPhy1Chip(void)
 	UINT32	volatile uReg;
 	int	i;
 	int	t0;  	
-	if(PHY1Chip == CHIP_KSZ8081 || PHY1Chip==CHIP_YT8512C || PHY1Chip==CHIP_IP101A_INT)
-	{
-		RdValue = Mii1StationRead(16, PHY1AD) ;
-		if (!(RdValue & 0x0100)) {
-			RdValue |= 0x0100;
-			Mii1StationWrite(16, PHY1AD, RdValue); 	 
-		}
-		t0 = 100;
-		Mii1StationWrite(PHY_CNTL_REG, PHY1AD, RESET_PHY); 
-		while (1) 
-		{
-			RdValue = Mii1StationRead(PHY_CNTL_REG, PHY1AD) ;
-	  		if ((RdValue&RESET_PHY)==0)
-				break;
-	   		if (!(t0--)) 
-	   	  	{
-				break;
-			}
-	 	}
-	   	Mii1StationWrite(PHY_ANA_REG, PHY1AD, DR100_TX_FULL|DR100_TX_HALF|DR10_TX_FULL|DR10_TX_HALF|IEEE_802_3_CSMA_CD);
-	   	RdValue = Mii1StationRead(PHY_CNTL_REG, PHY1AD) ;
-	 	RdValue = (RdValue | RESTART_AN | ENABLE_AN);
-	   	Mii1StationWrite(PHY_CNTL_REG, PHY1AD, RdValue);
-	   	if(PHY1Chip == CHIP_KSZ8081 || PHY1Chip==CHIP_YT8512C || PHY1Chip==CHIP_IP101A_INT)
-	   	{
-	   		if(PHY1Chip == CHIP_KSZ8081)
-	   		{
-		   		RdValue = Mii1StationRead(PHY_INT_CNTL_REG, PHY1AD) ;
-		 		RdValue = (RdValue | 0x0500);
-		   		Mii1StationWrite(PHY_INT_CNTL_REG, PHY1AD, RdValue);
-			}
-	   		else if(PHY1Chip == CHIP_YT8512C)
-	   		{
-		   		RdValue = Mii1StationRead(YT8512_PHY_INT_MASK_REG, PHYAD) ;
-		 		RdValue = (RdValue | LINK_FAILED_INT | LINK_SUCCEED_INT);		
-		   		Mii1StationWrite(YT8512_PHY_INT_MASK_REG, PHYAD, RdValue);
-		   		RdValue = Mii1StationRead(YT8512_PHY_INT_STATUS_REG, PHYAD) ;	
-	   		}
-	   		else if(PHY1Chip==CHIP_IP101A_INT)
-	   		{
-	   			RdValue = Mii1StationRead(IP101_DIO_CNRL_REG, PHYAD);	
-	   			RdValue |= 0x04;	
-	   			Mii1StationWrite(IP101_DIO_CNRL_REG, PHYAD, RdValue);
-		   		RdValue = Mii1StationRead(IP101_PHY_INT_CNTL_REG, PHYAD) ;	
-				Disp("IP101_PHY_INT_CNTL_REG =%04xH \n",RdValue);
-		 		RdValue |= IP101_INTR;
-		 		RdValue &= ~(IP101_ALL_MASK | IP101_LINK_MASK);
-				Disp("RdValue =%04xH \n",RdValue);
-		   		Mii1StationWrite(IP101_PHY_INT_CNTL_REG, PHYAD, RdValue);
-	   		}
-			outpw(REG_CLK_PCLKEN0,inpw(REG_CLK_PCLKEN0) | (1<<3)); 
-	    	outpw(REG_SYS_GPF_MFPH,(inpw(REG_SYS_GPF_MFPH) & ~(0xF<<20)) | (0xF<<20));	
-			outpw(REG_GPIOF_DIR, inpw(REG_GPIOF_DIR) & ~(1<<13));			
-			outpw(REG_GPIOF_PUEN, inpw(REG_GPIOF_PUEN) | (1<<13));			
-	    	RdValue = inpw(REG_GPIOF_IMD);			
-	    	outpw(REG_GPIOF_IMD,RdValue & ~(1<<13));
-	    	RdValue = inpw(REG_GPIOF_IREN);			
-	    	outpw(REG_GPIOF_IREN,RdValue & ~(1<<13));
-	    	RdValue = inpw(REG_GPIOF_IFEN);			
-	    	outpw(REG_GPIOF_IFEN,RdValue  | (1<<13));	
-	    	SetIntVector((PVOID)GPIO_IRQHandler2,EINT2_IRQn,IRQ_LEVEL_7);
-		}	
-	}
-	else if(CHIP_DM8603)
+	if(PHY1Chip == CHIP_DM8603)
 	{
 		for(i=0;i<2;i++)
 		{
@@ -779,14 +573,7 @@ void Mac1TxGo(void)
 void GetPhy1ID(void)
 {
 	UINT32	RdValue;
-	if(PHY1Chip==CHIP_KSZ8081 || PHY1Chip == CHIP_YT8512C || PHY1Chip==CHIP_IP101A_INT)
-	{
-		RdValue = Mii1StationRead(PHY_ID1_REG, PHY1AD) ;
-		Disp("PHY1_ID1_REG = %xH \n",RdValue);
-		RdValue = Mii1StationRead(PHY_ID2_REG, PHY1AD) ;
-		Disp("PHY1_ID2_REG = %xH \n",RdValue>>4);
-	}
-	else if(PHY1Chip==CHIP_DM8603)
+	if(PHY1Chip==CHIP_DM8603)
 	{
 		RdValue = Mii1StationRead(PHY_ID1_REG, GW1PHYAD[0]) ;
 		Disp("PHY1_ID1_REG = %xH \n",RdValue);
@@ -803,8 +590,6 @@ int MAC1_Initialize(NET_ADAPTER_INFO* pEthInfo)
 	#else
 		#if defined(DM8603)
 			PHY1Chip=CHIP_DM8603;
-		#else
-			PHY1Chip=CHIP_KSZ8081;
 		#endif
 	#endif
 	if(PHY1Chip== CHIP_IP101A || PHY1Chip== CHIP_DM9000A)
@@ -854,13 +639,6 @@ int MAC1_Initialize(NET_ADAPTER_INFO* pEthInfo)
  	SetMac1Addr(pEthInfo->myMacAddr) ;
 	m_nP9701_Mutex = 0;
 	m_pEthInfo1->portSilentTime = 0; 
-	if(PHY1Chip != CHIP_DM8603)
-	{
-		SetIntVector((PVOID)MAC1_Tx_isr,EMC1_TX_IRQn,IRQ_LEVEL_1 | HIGH_LEVEL_SENSITIVE);
-		SetIntVector((PVOID)MAC1_Rx_isr,EMC1_RX_IRQn,IRQ_LEVEL_1 | HIGH_LEVEL_SENSITIVE);
-		Mac1_EnableInt();
-		EnableInt(EINT2_IRQn);	
-	}
 	return 1;
 }
 #else	
