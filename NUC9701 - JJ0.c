@@ -76,6 +76,7 @@ NET_ADAPTER_INFO* m_pEthInfo1;
 #endif
 #if 1
 	volatile unsigned int GW1PHYAD[2]; 
+	volatile UINT32 reg20WrData[2] = {0x810, 0x810}; //DM9
 	volatile bool GW1link1Ok = false;
 	volatile bool GW1link2Ok = false;
 	volatile char PHY1Chip;
@@ -252,9 +253,11 @@ void MAC1_SetLinkOk(int ms)
 	{
 		Disp("** DM8603 MAC1_SetLinkOk **\n");
 		if (ms == 0) {
-	    	RdValue = Mii1StationRead(PHY_STATUS_REG, GW1PHYAD[0]) ;	
-	    	Disp("GW11 PHY_STATUS_REG = %xH\n",RdValue);    
-			if ((RdValue & AN_COMPLETE) != 0)	
+			RdValue = Mii1StationRead(PHY_STATUS_REG, GW1PHYAD[0]) ;	//DM9.twice
+			RdValue = Mii1StationRead(PHY_STATUS_REG, GW1PHYAD[0]) ;	
+			Disp("GW11 PHY_STATUS_REG = %xH\n",RdValue);    
+			//if ((RdValue & AN_COMPLETE) != 0)	
+			if ((RdValue & 0x04) != 0)	//BMSR.D[2]= Link Status
 			{
 				if ((m_pEthInfo1->portStatus&ETH_PORT_STATUS_NIGOTIATION_OK) != ETH_PORT_STATUS_NIGOTIATION_OK) 
 				{
@@ -268,9 +271,12 @@ void MAC1_SetLinkOk(int ms)
 					GW1link1Ok = false;
 				}
 			}
-	    	RdValue = Mii1StationRead(PHY_STATUS_REG, GW1PHYAD[1]) ;	
-	    	Disp("GW12 PHY_STATUS_REG = %xH\n",RdValue);  
-			if ((RdValue & AN_COMPLETE) != 0)	
+		Disp("DM9.ms0 GW11 PHY_STATUS_REG = %xH, %s\n",RdValue, GW1link1Ok ? "Link Up" : "Link Down");    
+			RdValue = Mii1StationRead(PHY_STATUS_REG, GW1PHYAD[1]) ;	//DN9.twice	
+			RdValue = Mii1StationRead(PHY_STATUS_REG, GW1PHYAD[1]) ;	
+			Disp("GW12 PHY_STATUS_REG = %xH\n",RdValue);  
+			//if ((RdValue & AN_COMPLETE) != 0)	
+			if ((RdValue & 0x04) != 0)	//BMSR.D[2]= Link Status
 			{
 				if ((m_pEthInfo1->portStatus&ETH_PORT_STATUS_NIGOTIATION_OK) != ETH_PORT_STATUS_NIGOTIATION_OK) 
 				{
@@ -284,12 +290,15 @@ void MAC1_SetLinkOk(int ms)
 					GW1link2Ok = false;
 				}
 			}
+		Disp("DM9.ms0 GW12 PHY_STATUS_REG = %xH, %s\n",RdValue, GW1link2Ok ? "Link Up" : "Link Down");  
 		} else {
 			t0 = GetTickCount1ms();
 			while (1) 	 
-		    {
-		    	RdValue = Mii1StationRead(PHY_STATUS_REG, GW1PHYAD[0]) ;	
-				if ((RdValue & AN_COMPLETE) != 0)
+			{
+				RdValue = Mii1StationRead(PHY_STATUS_REG, GW1PHYAD[0]) ;	//DM9.twice
+				RdValue = Mii1StationRead(PHY_STATUS_REG, GW1PHYAD[0]) ;	
+				//if ((RdValue & AN_COMPLETE) != 0)
+				if ((RdValue & 0x04) != 0)	//BMSR.D[2]= Link Status
 				{
 					GW1link1Ok = true;
 					break;
@@ -302,12 +311,22 @@ void MAC1_SetLinkOk(int ms)
 					break;
 				}
 				OSTimeDly1ms(10);
-		    }
+			}
+		  if (GW1link1Ok)
+			Disp("DM9.ms%d GW11 PHY_STATUS_REG = %xH, %s\n",ms,RdValue, GW1link1Ok ? "Link Up" : "Link Down");    
+		  if (!GW1link1Ok) {
+			Disp("DM9.ms%d GW11 PHY_STATUS_REG = %xH, WRITE %x\n",ms,RdValue, reg20WrData[0]);    
+			Mii1StationWrite(20, GW1PHYAD[0], reg20WrData[0]); //DM9.0x810
+			if (reg20WrData[0] & 0x20) reg20WrData[0] = 0x810; else reg20WrData[0] = 0x830; //DM9. reg20WrData[0] ^= 0x020;
+		  }
+		  
 			t0 = GetTickCount1ms();
 			while (1) 	 
-		    {
-		    	RdValue = Mii1StationRead(PHY_STATUS_REG, GW1PHYAD[1]) ;	
-				if ((RdValue & AN_COMPLETE) != 0)
+			{  
+				RdValue = Mii1StationRead(PHY_STATUS_REG, GW1PHYAD[1]) ;	//DM9.twice	
+				RdValue = Mii1StationRead(PHY_STATUS_REG, GW1PHYAD[1]) ;	
+				//if ((RdValue & AN_COMPLETE) != 0)
+				if ((RdValue & 0x04) != 0)	//BMSR.D[2]= Link Status
 				{
 					GW1link2Ok = true;
 					break;
@@ -320,7 +339,15 @@ void MAC1_SetLinkOk(int ms)
 					break;
 				}
 				OSTimeDly1ms(10);
-		    }
+			}
+		  if (GW1link2Ok)
+			Disp("DM9.ms%d GW12 PHY_STATUS_REG = %xH, %s\n",ms,RdValue, GW1link2Ok ? "Link Up" : "Link Down");  
+		  if (!GW1link2Ok) {
+			Disp("DM9.ms%d GW12 PHY_STATUS_REG = %xH, WRITE %x\n",ms,RdValue, reg20WrData[1]);    
+			Mii1StationWrite(20, GW1PHYAD[1], reg20WrData[1]); //DM9.0x830
+			if (reg20WrData[1] & 0x20) reg20WrData[1] = 0x810; else reg20WrData[1] = 0x830; //DM9. reg20WrData[1] ^= 0x020;
+		  }
+		  
 		}
 		if (GW1link1Ok) {
 		    regANA   = Mii1StationRead(PHY_ANA_REG, GW1PHYAD[0]);		
@@ -430,14 +457,14 @@ void ResetPhy1Chip(void)
 				}
 			}
 	 	}
-	   	Mii1StationWrite(PHY_ANA_REG, GW1PHYAD[0], DR100_TX_FULL|DR100_TX_HALF|DR10_TX_FULL|DR10_TX_HALF|IEEE_802_3_CSMA_CD);
-	   	RdValue = Mii1StationRead(PHY_CNTL_REG, GW1PHYAD[0]) ;
-	 	RdValue = (RdValue | RESTART_AN | ENABLE_AN);
-	   	Mii1StationWrite(PHY_CNTL_REG, GW1PHYAD[0], RdValue);
-	   	Mii1StationWrite(PHY_ANA_REG, GW1PHYAD[1], DR100_TX_FULL|DR100_TX_HALF|DR10_TX_FULL|DR10_TX_HALF|IEEE_802_3_CSMA_CD);
-	   	RdValue = Mii1StationRead(PHY_CNTL_REG, GW1PHYAD[1]) ;
-	 	RdValue = (RdValue | RESTART_AN | ENABLE_AN);
-	   	Mii1StationWrite(PHY_CNTL_REG, GW1PHYAD[1], RdValue);
+//	   	Mii1StationWrite(PHY_ANA_REG, GW1PHYAD[0], DR100_TX_FULL|DR100_TX_HALF|DR10_TX_FULL|DR10_TX_HALF|IEEE_802_3_CSMA_CD);
+//	   	RdValue = Mii1StationRead(PHY_CNTL_REG, GW1PHYAD[0]) ;
+//	 	RdValue = (RdValue | RESTART_AN | ENABLE_AN);
+//	   	Mii1StationWrite(PHY_CNTL_REG, GW1PHYAD[0], RdValue);
+//	   	Mii1StationWrite(PHY_ANA_REG, GW1PHYAD[1], DR100_TX_FULL|DR100_TX_HALF|DR10_TX_FULL|DR10_TX_HALF|IEEE_802_3_CSMA_CD);
+//	   	RdValue = Mii1StationRead(PHY_CNTL_REG, GW1PHYAD[1]) ;
+//	 	RdValue = (RdValue | RESTART_AN | ENABLE_AN);
+//	   	Mii1StationWrite(PHY_CNTL_REG, GW1PHYAD[1], RdValue);
 	}
 	return;
 }
