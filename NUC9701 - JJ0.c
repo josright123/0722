@@ -189,29 +189,17 @@ void Mac1_DisableUnicast()
 void Mii1StationWrite(UINT32 PhyInAddr, UINT32 PhyAddr, UINT32 PhyWrData)
 {
 	int volatile i = 1000;
-	#if 1
 		MIID1 = PhyWrData ;
 		MIIDA1 = PhyInAddr | PhyAddr | PHYBUSY | PHYWR | MDCCR;
 		while (i--) ;
 		while ( (MIIDA1 & PHYBUSY) )  ;
-	#else
-		MIID1 = PhyWrData ;
-		MIIDA1 = PhyInAddr | PhyAddr | 0xB0000;
-		while ( (MIIDA1 & PHYBUSY) )  ;
-	#endif
 }
 UINT32 Mii1StationRead(UINT32 PhyInAddr, UINT32 PhyAddr)
 {
  	UINT32 volatile PhyRdData ;
-	#if 1
 		MIIDA1 = PhyInAddr | PhyAddr | PHYBUSY | MDCCR;
 		while( (MIIDA1 & PHYBUSY) )  ;
 		PhyRdData = MIID1 ;  
-	#else
-		MIIDA1 = PhyInAddr | PhyAddr | 0xA0000;
-		while( (MIIDA1 & PHYBUSY) )  ;
-		PhyRdData = MIID1 ;  
-	#endif
  	return PhyRdData ;
 }
 #if 1	
@@ -866,18 +854,6 @@ int MAC1_Initialize(NET_ADAPTER_INFO* pEthInfo)
  	SetMac1Addr(pEthInfo->myMacAddr) ;
 	m_nP9701_Mutex = 0;
 	m_pEthInfo1->portSilentTime = 0; 
-#if 0
-	{
-		int tmp;
-		*((volatile UINT32 *)0x38)=(UINT32)IRQ_IntHandler;
-		__asm
-		{
-			MRS	tmp, CPSR
-			BIC	tmp, tmp, 0x80
-			MSR	CPSR_c, tmp
-		}
-	}
-#endif
 	if(PHY1Chip != CHIP_DM8603)
 	{
 		SetIntVector((PVOID)MAC1_Tx_isr,EMC1_TX_IRQn,IRQ_LEVEL_1 | HIGH_LEVEL_SENSITIVE);
@@ -890,88 +866,11 @@ int MAC1_Initialize(NET_ADAPTER_INFO* pEthInfo)
 #else	
 int Mac1_Initialize(ethaddr MacAddr)
 {
-	m_lastTime1 =0;
-	MCMDR1|=MCMDR_SWR;  
-#if defined(NUC970)
-	Net1RxBuf = (NETBUF*)GetNcMem(sizeof(NETBUF)*MaxRxFrameDescriptors);
-#else	
-	Net1RxBuf = (NETBUF*)((UINT32)rx1buf | 0x80000000);
-#endif	
-	_iqueue1_first = _iqueue1_last = NULL;
-	Tx1FDInitialize() ;
-	Rx1FDInitialize() ;
- 	SetMac1Addr(MacAddr) ;
-	m_nJustLinkedin10s1 =10;
-	FillCam1Entry(0, gEMAC1Cam0M, gEMAC1Cam0L);
-	CAMCMR1 = gCAMCMR1 ;
-	Mac1_EnableBroadcast();	
-	TDU1_Flag=0;
-	ReadyMac1() ;
- 	AutoDetectPhy1Addr() ; 
- 	SetMac1Addr(MacAddr) ;
-	m_nP9701_Mutex = 0;
-	m_pEthInfo1->portSilentTime = 0; 
-	SetIntVector((PVOID)MAC1_Tx_isr,EMC1_TX_IRQn,IRQ_LEVEL_1 | HIGH_LEVEL_SENSITIVE);
-	SetIntVector((PVOID)MAC1_Rx_isr,EMC1_RX_IRQn,IRQ_LEVEL_1 | HIGH_LEVEL_SENSITIVE);
-	Mac1_EnableInt();
-	return 1;
-}
-void Enable_MAC0(void)
-{
-    outpw(REG_CLK_HCLKEN, inpw(REG_CLK_HCLKEN) | (1 << 16));            
-    outpw(REG_CLK_DIVCTL8, (inpw(REG_CLK_DIVCTL8) & ~0xFF) | 0xA0);     
-    outpw(REG_SYS_GPF_MFPL, 0x11111111);
-    outpw(REG_SYS_GPF_MFPH, (inpw(REG_SYS_GPF_MFPH) & ~0xFF) | 0x11);
- 	AutoDetectPhy1Addr() ; 
-#if 0
-	{
-		int tmp;
-		*((volatile UINT32 *)0x38)=(UINT32)IRQ_IntHandler;
-		__asm
-		{
-			MRS	tmp, CPSR
-			BIC	tmp, tmp, 0x80
-			MSR	CPSR_c, tmp
-		}
-	}
-#endif
-}
-void Init_MAC0(void)
-{
-    outpw(REG_CLK_HCLKEN, inpw(REG_CLK_HCLKEN) | (1 << 16));            
-    outpw(REG_CLK_DIVCTL8, (inpw(REG_CLK_DIVCTL8) & ~0xFF) | 0xA0);     
-    outpw(REG_SYS_GPF_MFPL, 0x11111111);
-    outpw(REG_SYS_GPF_MFPH, (inpw(REG_SYS_GPF_MFPH) & ~0xFF) | 0x11);
-#if defined(DUAL_PORT)
-	outpw(REG_CLK_HCLKEN, inpw(REG_CLK_HCLKEN) | (1 << 17));            
-    outpw(REG_CLK_DIVCTL8, (inpw(REG_CLK_DIVCTL8) & ~0xFF) | 0xA0);     
-    outpw(REG_SYS_GPE_MFPL, (inpw(REG_SYS_GPE_MFPL) & ~0xFFFFFF00) | 0x11111100);
-    outpw(REG_SYS_GPE_MFPH, (inpw(REG_SYS_GPE_MFPH) & ~0x0000FFFF) | 0x00001111);
-#endif
-	MCMDR1|=MCMDR_SWR;  
-	CAMCMR1 = gCAMCMR1 ;
-	ReadyMac1() ;
- 	AutoDetectPhy1Addr() ; 
- 	ResetPhy1Chip() ;
-#if 0
-	{
-		int tmp;
-		*((volatile UINT32 *)0x38)=(UINT32)IRQ_IntHandler;
-		__asm
-		{
-			MRS	tmp, CPSR
-			BIC	tmp, tmp, 0x80
-			MSR	CPSR_c, tmp
-		}
-	}
-#endif
 }
 #endif
 void  Mac1_ShutDown()
 {
-#if 1 
 	MCMDR1 &= ~(MCMDR_RXON|MCMDR_TXON) ;
-#endif   
 }       
 int Mac1jj1=0;
 int Mac1jj2 = 11;
